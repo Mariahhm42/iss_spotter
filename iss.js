@@ -1,42 +1,51 @@
-// iss.js
 const needle = require('needle');
 
 /**
- * Fetch the geographical coordinates (latitude and longitude) for a given IP address.
+ * Makes a single API request to retrieve upcoming ISS fly over times for the given lat/lng coordinates.
  * Input:
- *   - IP address (string)
- *   - Callback (function)
+ *   - An object with keys `latitude` and `longitude`
+ *   - A callback (to pass back an error or the array of resulting data)
  * Returns (via Callback):
- *   - Error, if any (nullable)
- *   - Latitude and Longitude as an object: { latitude: 'value', longitude: 'value' }
+ *   - An error, if any (nullable)
+ *   - The fly over times as an array of objects (null if error). Example:
+ *     [ { risetime: 134564234, duration: 600 }, ... ]
  */
-const fetchCoordsByIP = function(ip, callback) {
-  const url = `https://ipwho.is/${ip}`;
+const fetchISSFlyOverTimes = function(coords, callback) {
+  const { latitude, longitude } = coords;
   
+  const url = `https://iss-flyover.herokuapp.com/json/?lat=${latitude}&lon=${longitude}`;
+
+  // Make the API request to get the flyover times
   needle.get(url, (error, response, body) => {
     if (error) {
-      callback(error, null);
+      callback(error, null);  // Pass the error to the callback
       return;
     }
 
+    // Check if the response status code is 200 (OK)
+    if (response.statusCode !== 200) {
+      callback(`Error: Status code ${response.statusCode}`, null);
+      return;
+    }
+
+    // Parse the response body
     let data;
     try {
       data = JSON.parse(body);
     } catch (err) {
-      callback(Error("Failed to parse response body"), null);
+      callback('Error parsing response body', null);
       return;
     }
 
-    // Error handling: check for 'success' flag in the response
-    if (!data.success) {
-      callback(Error(`Success status was false. Server message says: ${data.message} when fetching for IP ${ip}`), null);
+    // Check if the API response is successful
+    if (data.message !== "success") {
+      callback(`Error: ${data.message}`, null);
       return;
     }
 
-    // If everything is okay, return the latitude and longitude
-    const { latitude, longitude } = data;
-    callback(null, { latitude, longitude });
+    // Pass the array of flyover times to the callback
+    callback(null, data.response);
   });
 };
 
-module.exports = { fetchCoordsByIP };
+module.exports = { fetchISSFlyOverTimes };
