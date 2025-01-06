@@ -1,14 +1,13 @@
 // index.js
-const { fetchISSFlyOverTimes } = require('./iss');
 
-// Example coordinates (latitude and longitude)
-const coords = { latitude: '49.27670', longitude: '-123.13000' };
+const { nextISSTimesForMyLocation } = require('./iss');
 
-fetchISSFlyOverTimes(coords, (error, data) => {
+// Call the function to get the next ISS flyovers for the current location
+nextISSTimesForMyLocation((error, passTimes) => {
   if (error) {
-    console.log("It didn't work! Error:", error);
-    return;
+    return console.log("It didn't work!", error);
   }
-
-  console.log("It worked! ISS Flyover Times:", data);
+  
+  // Success! Print out the flyover times.
+  passTimes.forEach(pass => console.log(pass));
 });

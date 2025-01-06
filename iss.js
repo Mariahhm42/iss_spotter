@@ -1,51 +1,39 @@
-const needle = require('needle');
+const { fetchCoordsByIP } = require('./geocode');
+const { fetchISSFlyOverTimes } = require('./iss');
 
 /**
- * Makes a single API request to retrieve upcoming ISS fly over times for the given lat/lng coordinates.
+ * Orchestrates multiple API requests in order to determine the next 5 upcoming ISS fly overs for the user's current location.
  * Input:
- *   - An object with keys `latitude` and `longitude`
- *   - A callback (to pass back an error or the array of resulting data)
+ *   - A callback with an error or results. 
  * Returns (via Callback):
  *   - An error, if any (nullable)
- *   - The fly over times as an array of objects (null if error). Example:
- *     [ { risetime: 134564234, duration: 600 }, ... ]
- */
-const fetchISSFlyOverTimes = function(coords, callback) {
-  const { latitude, longitude } = coords;
-  
-  const url = `https://iss-flyover.herokuapp.com/json/?lat=${latitude}&lon=${longitude}`;
-
-  // Make the API request to get the flyover times
-  needle.get(url, (error, response, body) => {
+ *   - The fly-over times as an array (null if error):
+ *     [ { risetime: <number>, duration: <number> }, ... ]
+ */ 
+const nextISSTimesForMyLocation = function(callback) {
+  // Step 1: Fetch the coordinates for the user's IP
+  fetchCoordsByIP((error, coords) => {
     if (error) {
-      callback(error, null);  // Pass the error to the callback
-      return;
+      return callback(error, null); // Return if there is an error
     }
-
-    // Check if the response status code is 200 (OK)
-    if (response.statusCode !== 200) {
-      callback(`Error: Status code ${response.statusCode}`, null);
-      return;
-    }
-
-    // Parse the response body
-    let data;
-    try {
-      data = JSON.parse(body);
-    } catch (err) {
-      callback('Error parsing response body', null);
-      return;
-    }
-
-    // Check if the API response is successful
-    if (data.message !== "success") {
-      callback(`Error: ${data.message}`, null);
-      return;
-    }
-
-    // Pass the array of flyover times to the callback
-    callback(null, data.response);
+    
+    // Step 2: Fetch the ISS flyover times for these coordinates
+    fetchISSFlyOverTimes(coords, (error, passTimes) => {
+      if (error) {
+        return callback(error, null); // Return if there is an error
+      }
+      
+      // Step 3: Successfully fetched flyover times, format and return them
+      const formattedPassTimes = passTimes.map(pass => {
+        const date = new Date(0); // Create a new date object
+        date.setUTCSeconds(pass.risetime); // Set the date to the correct flyover time
+        return `Next pass at ${date} for ${pass.duration} seconds!`;
+      });
+      
+      // Pass the formatted times to the callback
+      callback(null, formattedPassTimes);
+    });
   });
 };
 
-module.exports = { fetchISSFlyOverTimes };
+module.exports = { nextISSTimesForMyLocation };
