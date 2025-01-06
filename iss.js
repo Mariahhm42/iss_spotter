@@ -1,36 +1,42 @@
+// iss.js
 const needle = require('needle');
 
 /**
- * Makes a single API request to retrieve the user's IP address.
+ * Fetch the geographical coordinates (latitude and longitude) for a given IP address.
  * Input:
- *   - A callback (to pass back an error or the IP string)
+ *   - IP address (string)
+ *   - Callback (function)
  * Returns (via Callback):
- *   - An error, if any (nullable)
- *   - The IP address as a string (null if error). Example: "162.245.144.188"
+ *   - Error, if any (nullable)
+ *   - Latitude and Longitude as an object: { latitude: 'value', longitude: 'value' }
  */
-const fetchMyIP = function(callback) {
-  const url = 'https://api.ipify.org?format=json';
-
+const fetchCoordsByIP = function(ip, callback) {
+  const url = `https://ipwho.is/${ip}`;
+  
   needle.get(url, (error, response, body) => {
     if (error) {
       callback(error, null);
       return;
     }
-    if (response.statusCode !== 200) {
-      const msg = `Status Code ${response.statusCode} when fetching IP. Response: ${response.body}`;
-      callback(Error(msg), null);
+
+    let data;
+    try {
+      data = JSON.parse(body);
+    } catch (err) {
+      callback(Error("Failed to parse response body"), null);
       return;
     }
 
-    // Parse and extract the IP address
-    const ip = body.ip;
-    if (!ip) {
-      callback(Error("Invalid IP data format received"), null);
+    // Error handling: check for 'success' flag in the response
+    if (!data.success) {
+      callback(Error(`Success status was false. Server message says: ${data.message} when fetching for IP ${ip}`), null);
       return;
     }
 
-    callback(null, ip);
+    // If everything is okay, return the latitude and longitude
+    const { latitude, longitude } = data;
+    callback(null, { latitude, longitude });
   });
 };
 
-module.exports = { fetchMyIP };
+module.exports = { fetchCoordsByIP };
